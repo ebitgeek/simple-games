@@ -11,7 +11,9 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { usePrizeStore, type Prize } from "@/lib/prize-store"
-import { Gift } from "lucide-react"
+import { Gift, PartyPopper } from "lucide-react"
+import { sfx } from "@/lib/sfx"
+import { useSfxStore } from "@/lib/sfx-store"
 
 export function Lottery() {
   const rawInput = usePrizeStore(s => s.rawInput)
@@ -26,6 +28,9 @@ export function Lottery() {
   const [sizePx, setSizePx] = useState<number>(420)
   const [customOpen, setCustomOpen] = useState<boolean>(false)
   const [customInput, setCustomInput] = useState<string>("")
+  const [sfxOpen, setSfxOpen] = useState<boolean>(false)
+  const [sfxEnabledLocal, setSfxEnabledLocal] = useState<boolean>(useSfxStore.getState().enabled)
+  const [sfxVolumeLocal, setSfxVolumeLocal] = useState<number>(useSfxStore.getState().volume)
 
   const parsedPrizes: Prize[] = useMemo(() => {
     const labels = rawInput
@@ -91,6 +96,7 @@ export function Lottery() {
       subset.push(next)
     }
     setHighlightedIndices(subset)
+    if (subset.length > 0 && useSfxStore.getState().enabled) sfx.tick()
 
     if (remainingMs <= 0 || availableIndices.length === 0) {
       // 结束：随机选择一个可用项作为结果
@@ -107,10 +113,14 @@ export function Lottery() {
         const interval = 120
         const blink = () => {
           setHighlightedIndices(prev => (prev.length === 1 && prev[0] === finalIdx) ? [] : [finalIdx])
+          if (useSfxStore.getState().enabled) sfx.blink()
           toggles += 1
           if (toggles >= flashes * 2) {
+            // 平滑过渡，先快速淡出其他残留音，再播放 win
+            if (useSfxStore.getState().enabled) sfx.quietAll(50)
             setHighlightedIndices([finalIdx])
             setSpinning(false)
+            if (useSfxStore.getState().enabled) sfx.win()
             setDialogOpen(true)
             if (winnerTimerRef.current) window.clearTimeout(winnerTimerRef.current)
             winnerTimerRef.current = null
@@ -137,11 +147,17 @@ export function Lottery() {
 
   const handleStart = useCallback(() => {
     if (spinning || availableIndices.length === 0) return
+    const { enabled, volume } = useSfxStore.getState()
+    if (enabled) {
+      sfx.setVolume(volume)
+      sfx.setEnabled(true)
+      sfx.resume().then(() => sfx.start())
+    }
     setSpinning(true)
     setHighlightedIndices([])
     startTimeRef.current = performance.now()
-    // 1.1s - 1.9s 之间随机
-    totalDurationRef.current = 1100 + Math.random() * 800
+    // 2.5s - 5.0s 之间随机
+    totalDurationRef.current = 2500 + Math.random() * 2500
     pendingOrderRef.current = shuffle(availableIndices)
     if (timerRef.current) window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(runFlash, 50)
@@ -179,6 +195,27 @@ export function Lottery() {
     setDialogOpen(false)
     setCustomOpen(false)
   }, [customInput, setRawInput])
+
+  const handleGoAgain = useCallback(() => {
+    handleDialogClose()
+    setTimeout(() => {
+      if (availableIndices.length > 0) {
+        const { enabled, volume } = useSfxStore.getState()
+        if (enabled) {
+          sfx.setEnabled(true)
+          sfx.setVolume(volume)
+        }
+        handleStart()
+      }
+    }, 120)
+  }, [handleDialogClose, handleStart, availableIndices.length])
+
+  const applySfxSettings = useCallback(() => {
+    useSfxStore.setState({ enabled: sfxEnabledLocal, volume: sfxVolumeLocal })
+    sfx.setEnabled(sfxEnabledLocal)
+    sfx.setVolume(sfxVolumeLocal)
+    setSfxOpen(false)
+  }, [sfxEnabledLocal, sfxVolumeLocal])
 
   // 响应式尺寸：根据视口计算圆盘直径
   useEffect(() => {
@@ -257,6 +294,9 @@ export function Lottery() {
             <Button variant="outline" onClick={handleReset} disabled={spinning} className="h-9 px-4 text-sm">
               重来
             </Button>
+            <Button variant="outline" onClick={() => setSfxOpen(true)} disabled={spinning} className="h-9 px-4 text-sm">
+              音效设置
+            </Button>
             <Button
               variant="secondary"
               onClick={() => {
@@ -274,15 +314,22 @@ export function Lottery() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && handleDialogClose()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>😈</DialogTitle>
-            <DialogDescription>
-              {currentPrize ? `${currentPrize.label}` : ""}
-            </DialogDescription>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="items-center text-center">
+            <DialogTitle className="text-xl"></DialogTitle>
+            <DialogDescription className="text-sm"></DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button onClick={handleDialogClose}>好的</Button>
+          <div className="grid place-items-center gap-3 py-2">
+            <div className="grid place-items-center rounded-full p-6 bg-gradient-to-br from-accent/60 to-primary/20 border">
+              <PartyPopper className="size-10" />
+            </div>
+            <div className="text-lg font-semibold">
+              {currentPrize ? `${currentPrize.label}` : ""}
+            </div>
+          </div>
+          <DialogFooter className="mt-2 sm:justify-center gap-2">
+            <Button variant="outline" onClick={handleGoAgain}>再来一次</Button>
+            <Button onClick={handleDialogClose}>我知道了</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -306,6 +353,30 @@ export function Lottery() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCustomOpen(false)}>取消</Button>
             <Button onClick={applyCustomPool} disabled={spinning}>应用</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={sfxOpen} onOpenChange={setSfxOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>音效设置</DialogTitle>
+            <DialogDescription>可以开关音效并调整音量。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={sfxEnabledLocal} onChange={(e) => setSfxEnabledLocal(e.target.checked)} />
+              启用音效
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span>音量：{Math.round(sfxVolumeLocal * 100)}%</span>
+              <input type="range" min={0} max={1} step={0.01} value={sfxVolumeLocal}
+                     onChange={(e) => setSfxVolumeLocal(parseFloat(e.target.value))} />
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSfxOpen(false)}>取消</Button>
+            <Button onClick={applySfxSettings}>应用</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
