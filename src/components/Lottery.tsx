@@ -156,8 +156,8 @@ export function Lottery() {
     setSpinning(true)
     setHighlightedIndices([])
     startTimeRef.current = performance.now()
-    // 2.5s - 5.0s 之间随机
-    totalDurationRef.current = 2500 + Math.random() * 2500
+    // 2.5s - 4.0s 之间随机
+    totalDurationRef.current = 2500 + Math.random() * 1500
     pendingOrderRef.current = shuffle(availableIndices)
     if (timerRef.current) window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(runFlash, 50)
