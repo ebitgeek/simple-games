@@ -328,7 +328,13 @@ export function Lottery() {
             </div>
           </div>
           <DialogFooter className="mt-2 sm:justify-center gap-2">
-            <Button variant="outline" onClick={handleGoAgain}>再来一次</Button>
+            <Button
+              variant="outline"
+              onClick={handleGoAgain}
+              disabled={availableIndices.length <= 1}
+            >
+              {availableIndices.length <= 1 ? "已抽完" : "再来一次"}
+            </Button>
             <Button onClick={handleDialogClose}>我知道了</Button>
           </DialogFooter>
         </DialogContent>
