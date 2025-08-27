@@ -6,7 +6,7 @@ import Lottery from "@/components/Lottery";
 function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <div className="min-h-screen p-3">
+      <div className="min-h-screen p-2 mb-10">
         <div className="flex justify-end">
           <ModeToggle />
         </div>

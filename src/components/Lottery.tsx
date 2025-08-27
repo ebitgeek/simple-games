@@ -214,7 +214,7 @@ export function Lottery() {
   }, [])
 
   return (
-    <div className="w-full min-h-screen flex items-center justify-center">
+    <div className="flex w-full items-center justify-center mt-20">
       <div className="relative" style={{ width: sizePx, height: sizePx }}>
         <div className="absolute inset-0 rounded-full border border-dashed border-border/70"/>
 
