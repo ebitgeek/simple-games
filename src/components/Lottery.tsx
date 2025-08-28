@@ -95,6 +95,10 @@ export function Lottery() {
       const next = pendingOrderRef.current.shift()!
       subset.push(next)
     }
+    // 兜底：即使出现异常也保证至少高亮一个
+    if (subset.length === 0 && availableIndices.length > 0) {
+      subset.push(availableIndices[Math.floor(Math.random() * availableIndices.length)])
+    }
     setHighlightedIndices(subset)
     if (subset.length > 0 && useSfxStore.getState().enabled) sfx.tick()
 
@@ -154,7 +158,10 @@ export function Lottery() {
       sfx.resume().then(() => sfx.start())
     }
     setSpinning(true)
-    setHighlightedIndices([])
+    // 立即给出一次高亮反馈，避免仅听到音效无视觉
+    setHighlightedIndices([
+      availableIndices[Math.floor(Math.random() * availableIndices.length)]
+    ])
     startTimeRef.current = performance.now()
     // 2.5s - 4.0s 之间随机
     totalDurationRef.current = 2500 + Math.random() * 1500
