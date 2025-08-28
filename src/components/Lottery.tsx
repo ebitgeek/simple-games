@@ -299,7 +299,7 @@ export function Lottery() {
           </Button>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={handleReset} disabled={spinning} className="h-9 px-4 text-sm">
-              重来
+              重制
             </Button>
             <Button variant="outline" onClick={() => setSfxOpen(true)} disabled={spinning} className="h-9 px-4 text-sm">
               音效设置
